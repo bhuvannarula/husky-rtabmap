@@ -1,0 +1,91 @@
+<launch>
+  <group ns="rtabmap">
+
+    <!-- Use RGBD synchronization -->
+    <!-- Here is a general example using a standalone nodelet, 
+         but it is recommended to attach this nodelet to nodelet 
+         manager of the camera to avoid topic serialization -->
+    <node pkg="nodelet" type="nodelet" name="rgbd_sync" args="standalone rtabmap_sync/rgbd_sync" output="screen">
+      <remap from="rgb/image"       to="/camera/rgb/image_rect_color"/>
+      <remap from="depth/image"     to="/camera/depth_registered/image_raw"/>
+      <remap from="rgb/camera_info" to="/camera/rgb/camera_info"/>
+      <remap from="rgbd_image"      to="rgbd_image"/> <!-- output -->
+      
+      <!-- Should be true for not synchronized camera topics 
+           (e.g., false for kinectv2, zed, realsense, true for xtion, kinect360)-->
+      <param name="approx_sync" value="false"/> 
+    </node>
+
+    <node name="rtabmap" pkg="rtabmap_slam" type="rtabmap" output="screen" args="--delete_db_on_start">
+          <param name="frame_id" type="string" value="base_link"/>
+
+          <param name="subscribe_depth" type="bool" value="false"/>
+          <param name="subscribe_rgbd" type="bool" value="true"/>
+          <param name="subscribe_scan" type="bool" value="false"/>
+
+          <remap from="odom" to="/base_controller/odom"/>
+          <!-- <remap from="scan" to="/base_scan"/> -->
+          <remap from="rgbd_image" to="rgbd_image"/>
+
+          <param name="queue_size" type="int" value="30"/>
+
+          <!-- RTAB-Map's parameters -->
+          <param name="Rtabmap/PublishRAMUsage" type="bool" value="true"/>
+          <param name="Rtabmap/TimeThr" type="float" value="5"/>
+          <param name="Rtabmap/MemoryThr" type="int" value="5"/>
+          <param name="Rtabmap/DetectionRate" type="float" value="1"/>
+          <param name="Rtabmap/LoopRatio" type="float" value="0"/>
+          <param name="Rtabmap/LoopGPS" type="bool" value="false"/> <!-- true?? -->
+
+          <param name="Mem/ImageKept" type="bool" value="false"/>
+          <param name="Mem/BinDataKept" type="bool" value="false"/>
+          <param name="Mem/RawDescriptorsKept" type="bool" value="false"/>
+          <param name="Mem/MapLabelsAdded" type="bool" value="false"/>
+          <param name="Mem/NotLinkedNodesKept" type="bool" value="false"/>
+          <param name="Mem/IncrementalMemory" type="bool" value="false"/> <!-- false means localization, true means slam-->
+          <param name="Mem/GenerateIds" type="bool" value="true"/> <!-- can affect-->
+          <param name="Mem/DepthAsMask" type="bool" value="true"/>
+          <param name="Mem/CompressionParallelized" type="bool" value="true"/> <!-- Compression of sensor data is multi-threaded -->
+
+          <!-- Keypoint Memory -->
+          <param name="Kp/NNStrategy" type="int" value="1"/> <!-- kNNFlannNaive=0, kNNFlannKdTree=1, kNNFlannLSH=2, kNNBruteForce=3, kNNBruteForceGPU=4 -->
+          <param name="Kp/IncrementalDictionary" type="bool" value="true"/>
+          <param name="Kp/IncrementalFlann" type="bool" value="true"/>
+          <param name="Kp/FlannRebalancingFactor"  ype="float" value="2.0"/>
+          <param name="Kp/ByteToFloat" type="bool" value="true"/> <!-- For NNStrategy=1, binary descriptors are converted to float by converting each byte to float instead of converting each bit to float. When converting bytes instead of bits, less memory is used and search is faster at the cost of slightly less accurate matching. -->
+          <param name="Kp/MaxDepth" type="float" value="0"/> <!-- 0 = inf-->
+          <param name="Kp/MinDepth"  ype="float" value="0"/>
+          <param name="Kp/MaxFeatures"  ype="int" value="500"/>
+          <param name="Kp/BadSignRatio" type="float" value="0.5"/>
+          <param name="Kp/NndrRatio" type="float" value="0.8"/>
+          <param name="Kp/DetectorStrategy" type="int" value="8"/> <!-- 0=SURF 1=SIFT 2=ORB 3=FAST/FREAK 4=FAST/BRIEF 5=GFTT/FREAK 6=GFTT/BRIEF 7=BRISK 8=GFTT/ORB 9=KAZE 10=ORB-OCTREE 11=SuperPoint 12=SURF/FREAK 13=GFTT/DAISY 14=SURF/DAISY 15=PyDetector -->
+          <param name="Kp/RoiRatios" type="string" value="0.0 0.0 0.0 0.0"/> <!-- type might be wrong -->
+          <param name="Kp/SubPixWinSize" type="int" value="3"/>
+          <param name="Kp/SubPixIterations" type="int" value="0"/>
+          <param name="Kp/SubPixEps" type="double" value="0.02"/>
+          <param name="Kp/GridRows" type="int" value="1"/>
+          <param name="Kp/GridCols" type="int" value="1"/>
+          
+          <!-- Database -->
+          <param name="DbSqlite3/InMemory" type="bool" value="false"/> <!-- "Using database in the memory instead of a file on the hard disk." -->
+          <param name="DbSqlite3/CacheSize" type="unsigned int" value="5000"/>
+          <param name="DbSqlite3/JournalMode" type="unsigned int" value="5000"/>
+          <param name="DbSqlite3/Synchronous" type="unsigned int" value="5000"/>
+          <param name="DbSqlite3/TempStore" type="unsigned int" value="5000"/>
+
+          
+          <param name="RGBD/NeighborLinkRefining" type="string" value="true"/>
+          <param name="RGBD/ProximityBySpace"     type="string" value="true"/>
+          <param name="RGBD/AngularUpdate"        type="string" value="0.01"/>
+          <param name="RGBD/LinearUpdate"         type="string" value="0.01"/>
+          <param name="RGBD/OptimizeFromGraphEnd" type="string" value="false"/>
+          <param name="Grid/FromDepth"            type="string" value="false"/> <!-- occupancy grid from lidar -->
+          <param name="Reg/Force3DoF"             type="string" value="true"/>
+          <param name="Reg/Strategy"              type="string" value="1"/> <!-- 1=ICP -->
+          
+          <!-- ICP parameters -->
+          <param name="Icp/VoxelSize"                 type="string" value="0.05"/>
+          <param name="Icp/MaxCorrespondenceDistance" type="string" value="0.1"/>
+    </node>
+  </group>
+</launch>
